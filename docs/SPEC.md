@@ -25,7 +25,7 @@ not stored with a `false` flag.
 Python Scraper
       │
       ▼
-   raw.csv
+  raw.jsonl
       │
       ▼
 Runner script (one row at a time)
@@ -51,17 +51,20 @@ User ──► eve Agent ──► customQueryGenerator ──► queryValidator
 ## 1. Python Scraper
 
 **Input:** YC's Algolia endpoint (`YCCompany_production` index).
-**Output:** `raw.csv`, one row per company, capped at ~100 rows.
+**Output:** `raw.jsonl`, one JSON object per company, one per line, capped at
+~100 records. JSON Lines rather than CSV: it preserves types (`team_size` as an
+integer, `location_flagged` as a boolean), survives the long free-text
+descriptions without quoting issues, and streams a record at a time to the agent.
 
 Filtering happens in two passes:
 1. Algolia query parameters restrict results to US/Europe at request time.
 2. The script re-checks country/location on the returned records as a second pass,
-   dropping anything outside the US/Europe allow-list before writing the CSV. If
+   dropping anything outside the US/Europe allow-list before writing the file. If
    it is not sure, it keeps the row and marks it in the `location_flagged` column.
 
-Conditions to go into the csv record:
+Conditions to go into the record:
 1. Should be from US/EU.
-2. Should have `team_size` < 500.
+2. Should have `team_size` <= 500.
 3. Founded year should be >= 2015 (assumption is YC batch year) —
    e.g. `"batch": Summer 2012` is rejected.
 
@@ -72,6 +75,8 @@ Conditions to go into the csv record:
 | `company_name` | string | |
 | `source_url` | string | YC profile URL, used as the natural unique key downstream |
 | `country_or_location` | string | |
+| `batch` | string | raw YC batch, e.g. `Summer 2017` |
+| `founded_year` | integer | year parsed out of `batch` |
 | `team_size` | integer | |
 | `industry` | string | |
 | `description` | string | |
@@ -106,7 +111,7 @@ ingestion pipeline.
 
 ## 3. Enrichment
 
-The runner script reads `raw.csv` and hands the agent **one row at a time**. For
+The runner script reads `raw.jsonl` and hands the agent **one record at a time**. For
 each row the agent researches the company with `web_search`, then passes the
 findings through `enrich` to produce a normalized record.
 
@@ -118,7 +123,7 @@ findings through `enrich` to produce a normalized record.
 | `is_b2c` | boolean | |
 | `funding_rounds` | array | each entry: round type, amount, date (where available) |
 | `annual_revenue` | number (USD) | estimated where exact figures aren't public |
-| `founded_year` | integer | |
+| `founded_year` | integer | confirms or corrects the batch-derived year from the scrape |
 
 All enrichment output is validated against a fixed schema before it is allowed
 downstream — no free-text or unvalidated fields reach storage.
@@ -137,12 +142,12 @@ dropped. The DB therefore contains qualified companies only.
 
 | Rule | Condition | Enforced at |
 |---|---|---|
-| Region | `country_or_location` is in `{USA, Europe}` | scrape time and again in `web_search` even if its flagged in csv or not flagged |
+| Region | `country_or_location` is in `{USA, Europe}` | scrape time and again in `web_search` even if its flagged in `raw.jsonl` or not flagged |
 | Team size | `team_size <= 500` | scrape time |
 | Founded year | `founded_year >= 2015` | scrape time (YC batch year) |
 | Revenue | `annual_revenue < 200,000,000` (USD) | enrichment time — the value only exists after `web_search` |
 
-The first three are already applied by the scraper ( exception in Region ), so a row in `raw.csv` has
+The first three are already applied by the scraper ( exception in Region ), so a record in `raw.jsonl` has
 passed them. The revenue rule is the only one checked after enrichment; a company
 over the threshold is discarded and never upserted.
 
@@ -165,7 +170,7 @@ Single table: `companies`.
 | `is_b2c` | boolean | enrichment |
 | `funding_rounds` | array | enrichment |
 | `annual_revenue` | numeric | enrichment |
-| `founded_year` | integer | enrichment |
+| `founded_year` | integer | scraper (from `batch`), confirmed by enrichment |
 | `created_at` | timestamptz | generated |
 | `updated_at` | timestamptz | generated |
 
@@ -176,8 +181,8 @@ pipeline updates existing rows rather than duplicating them.
 
 ## 6. Pipeline Run
 
-- `raw.csv` is read row by row; each row is one agent run (research → enrich).
-- A row that fails validation or the revenue gate is logged and skipped; it does
+- `raw.jsonl` is read line by line; each record is one agent run (research → enrich).
+- A record that fails validation or the revenue gate is logged and skipped; it does
   not stop the rest of the run.
 - Each surviving record is upserted on `source_url`, so re-running the pipeline is
   idempotent per company.

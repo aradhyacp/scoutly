@@ -10,9 +10,9 @@ Full detail lives in `docs/SPEC.md`. This file is the overview.
 ## What it does
 
 1. **Scrape** — a Python script (`scraper/main.py`) pulls ~100 companies from YC's
-   public Algolia index into `raw.csv`, already filtered to US/Europe, team size
+   public Algolia index into `raw.jsonl`, already filtered to US/Europe, team size
    under 500, and founded 2015 or later.
-2. **Enrich** — a runner feeds `raw.csv` to the eve agent one row at a time. The
+2. **Enrich** — a runner feeds `raw.jsonl` to the eve agent one record at a time. The
    agent researches the company on the web and returns normalized fields:
    `is_b2b`, `is_b2c`, `funding_rounds`, `annual_revenue`, `founded_year`.
 3. **Gate** — revenue must be under $200M USD. This is the one rule that can only
