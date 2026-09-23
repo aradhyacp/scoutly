@@ -12,7 +12,8 @@
     "dev": "eve dev",
     "eval": "eve eval",
     "start": "eve start",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "scrape": "cd scraper/ && python3 main.py"
   },
   "dependencies": {
     "@vercel/connect": "2.2.0",

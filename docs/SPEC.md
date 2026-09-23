@@ -3,13 +3,19 @@
 ## Overview
 
 A pipeline that scrapes the Y Combinator company directory, enriches each company
-using an AI agent, scores it against a fixed set of qualification rules, stores the
-result in Postgres, and displays it in a small internal web console.
+with an AI agent built on **eve** (Vercel's agent framework), stores only
+qualified companies in Postgres, and displays them in a small internal web
+console. The same agent can also be talked to in natural language to query the
+database.
 
 **Data source:** [ycombinator.com/companies](https://www.ycombinator.com/companies),
 via its public Algolia search index — no auth required.
 
 **Scope:** ~100 companies per run.
+
+**Principle:** the database is the gold standard. Only clean, fully-enriched,
+qualified rows are written. A company that fails a qualification rule is dropped,
+not stored with a `false` flag.
 
 ---
 
@@ -22,13 +28,22 @@ Python Scraper
    raw.csv
       │
       ▼
-trigger.dev  ──►  eve Agent (enrichment)  ──►  Scoring (deterministic)
+Runner script (one row at a time)
       │
       ▼
-  Supabase (Postgres)
+eve Agent ── web_search ──► enrich ──► validated record
       │
       ▼
-Next.js Console  ──►  Vercel
+Upsert script ──► Supabase (Postgres)
+      │
+      ▼
+Next.js Console ──► Vercel
+```
+
+Natural-language path (same agent, different entrypoint):
+
+```
+User ──► eve Agent ──► customQueryGenerator ──► queryValidator ──► customQueryExecutor ──► Supabase
 ```
 
 ---
@@ -41,7 +56,14 @@ Next.js Console  ──►  Vercel
 Filtering happens in two passes:
 1. Algolia query parameters restrict results to US/Europe at request time.
 2. The script re-checks country/location on the returned records as a second pass,
-   dropping anything outside the US/Europe allow-list before writing the CSV.
+   dropping anything outside the US/Europe allow-list before writing the CSV. If
+   it is not sure, it keeps the row and marks it in the `location_flagged` column.
+
+Conditions to go into the csv record:
+1. Should be from US/EU.
+2. Should have `team_size` < 500.
+3. Founded year should be >= 2015 (assumption is YC batch year) —
+   e.g. `"batch": Summer 2012` is rejected.
 
 ### Fields collected per company
 
@@ -53,20 +75,45 @@ Filtering happens in two passes:
 | `team_size` | integer | |
 | `industry` | string | |
 | `description` | string | |
+| `location_flagged` | boolean | not persisted to the DB; review signal only |
 
 ---
 
-## 2. LLM Enrichment
+## 2. The eve Agent
 
-An AI agent, given one raw company record, researches and returns structured
-enrichment fields. Enrichment is additive — it never overwrites the raw scrape
-fields, only adds to them.
+The enrichment and query layer is an agent built with **eve**, Vercel's framework
+for durable backend AI agents (`agent/` directory, compiled and run by the eve
+CLI). A plain script could have done the scrape-to-DB write, but the agent is what
+makes the research step possible: it decides what to look up, searches the web,
+and returns a validated record.
+
+### Tools
+
+| Tool | Kind | Purpose |
+|---|---|---|
+| `web_search` | eve built-in | Research a company on the open web to find `is_b2b`, `is_b2c`, `funding_rounds`, `annual_revenue`, `founded_year` |
+| `enrich` | authored | Normalize the researched values into the standard schema (types, units, USD amounts, canonical round names) |
+| `customQueryGenerator` | authored | Turn a natural-language question into a SQL query against the `companies` table |
+| `queryValidator` | authored | Reject unsafe or destructive SQL — no `DELETE`, `DROP`, `ALTER`, `UPDATE`, `TRUNCATE`, no multi-statement input; read-only queries only |
+| `customQueryExecutor` | authored | Execute the validated query against Supabase and return the rows |
+
+The query tools (`customQueryGenerator` → `queryValidator` → `customQueryExecutor`)
+run **only** on the natural-language path, when a person is talking to the agent —
+e.g. *"hey, pull info about this company xyz"*. They are never used by the
+ingestion pipeline.
+
+---
+
+## 3. Enrichment
+
+The runner script reads `raw.csv` and hands the agent **one row at a time**. For
+each row the agent researches the company with `web_search`, then passes the
+findings through `enrich` to produce a normalized record.
 
 ### Fields produced
 
 | Field | Type | Notes |
 |---|---|---|
-| `normalized_company_name` | string | cleaned/canonical form of `company_name` |
 | `is_b2b` | boolean | |
 | `is_b2c` | boolean | |
 | `funding_rounds` | array | each entry: round type, amount, date (where available) |
@@ -76,27 +123,32 @@ fields, only adds to them.
 All enrichment output is validated against a fixed schema before it is allowed
 downstream — no free-text or unvalidated fields reach storage.
 
----
-
-## 3. Scoring Rules
-
-Computed per company, after enrichment, against the qualification thresholds below.
-Each is stored as its own boolean column so the console can filter on them
-independently.
-
-| Rule | Condition |
-|---|---|
-| `size_qualified` | `team_size <= 500` |
-| `founded_year_qualified` | `founded_year >= 2015` |
-| `revenue_qualified` | `annual_revenue < 200,000,000` (USD) |
-| `region_qualified` | `country_or_location` is in `{USA, Europe}` |
-
-A company's overall qualification is the logical AND of all four, also stored as a
-single derived column for convenient filtering.
+Writing to the database is done by a **plain script, not the agent** — no tool
+call is involved. By the time enrichment returns, the record is already in its
+final, complete shape, so the script upserts it directly.
 
 ---
 
-## 4. Database (Supabase / Postgres)
+## 4. Qualification (a gate, not a column)
+
+Qualification is enforced as the data moves through the pipeline. Nothing about it
+is stored: a company either qualifies and is written, or it does not and is
+dropped. The DB therefore contains qualified companies only.
+
+| Rule | Condition | Enforced at |
+|---|---|---|
+| Region | `country_or_location` is in `{USA, Europe}` | scrape time and again in `web_search` even if its flagged in csv or not flagged |
+| Team size | `team_size <= 500` | scrape time |
+| Founded year | `founded_year >= 2015` | scrape time (YC batch year) |
+| Revenue | `annual_revenue < 200,000,000` (USD) | enrichment time — the value only exists after `web_search` |
+
+The first three are already applied by the scraper ( exception in Region ), so a row in `raw.csv` has
+passed them. The revenue rule is the only one checked after enrichment; a company
+over the threshold is discarded and never upserted.
+
+---
+
+## 5. Database (Supabase / Postgres)
 
 Single table: `companies`.
 
@@ -104,7 +156,6 @@ Single table: `companies`.
 |---|---|---|
 | `id` | uuid, PK | generated |
 | `company_name` | text | scraper |
-| `normalized_company_name` | text | enrichment |
 | `source_url` | text, unique | scraper |
 | `country_or_location` | text | scraper |
 | `team_size` | integer | scraper |
@@ -112,14 +163,9 @@ Single table: `companies`.
 | `description` | text | scraper |
 | `is_b2b` | boolean | enrichment |
 | `is_b2c` | boolean | enrichment |
-| `funding_rounds` | jsonb | enrichment |
+| `funding_rounds` | array | enrichment |
 | `annual_revenue` | numeric | enrichment |
 | `founded_year` | integer | enrichment |
-| `size_qualified` | boolean | scoring |
-| `founded_year_qualified` | boolean | scoring |
-| `revenue_qualified` | boolean | scoring |
-| `region_qualified` | boolean | scoring |
-| `overall_qualified` | boolean | scoring |
 | `created_at` | timestamptz | generated |
 | `updated_at` | timestamptz | generated |
 
@@ -128,37 +174,36 @@ pipeline updates existing rows rather than duplicating them.
 
 ---
 
-## 5. Workflow Orchestration (trigger.dev)
+## 6. Pipeline Run
 
-- One task, `processCompany`, takes a single raw company record as its payload:
-  runs enrichment → scoring → upsert, for that one company.
-- The pipeline entrypoint reads `raw.csv` and triggers `processCompany` once per
-  row via a single batch call, so all ~100 companies are queued together and
-  processed with bounded concurrency.
-- Each company's processing is independently retried on failure; one bad row does
-  not block the rest of the batch.
-- Re-running the pipeline is idempotent per company (keyed on `source_url`).
+- `raw.csv` is read row by row; each row is one agent run (research → enrich).
+- A row that fails validation or the revenue gate is logged and skipped; it does
+  not stop the rest of the run.
+- Each surviving record is upserted on `source_url`, so re-running the pipeline is
+  idempotent per company.
 
 ---
 
-## 6. Internal Console (Next.js)
+## 7. Internal Console (Next.js)
 
 Two pages:
 
-1. **Companies** — table of all companies and their full field set (raw, enriched,
-   and scored). Includes a search box (by name) and filters (by qualification
-   status, region, industry, B2B/B2C).
+1. **Companies** — table of all companies and their full field set (raw and
+   enriched). Includes a search box (by name) and filters (by region, industry,
+   B2B/B2C). Every row in the table is already qualified.
 2. **Industries** — pie chart of company count by `industry`.
 
 Data is read directly from Supabase.
 
 ---
 
-## 7. Deployment
+## 8. Deployment
 
-- Web console deployed to Vercel.
+- Web app ( Next.js ) is only deployed to Vercel.
 - Environment variables required: Supabase connection details, LLM provider API
-  key, trigger.dev API key (exact names documented in `.env.example`).
+  key (exact names documented in `.env.example`).
+- Trigger.dev runs the ai pipeline 
+- AI agent will be accessable via the Local Machine only
 
 ---
 
@@ -166,6 +211,6 @@ Data is read directly from Supabase.
 
 - [ ] GitHub repository
 - [ ] Deployed application URL
-- [ ] Database schema (matches Section 4)
+- [ ] Database schema (matches Section 5)
 - [ ] README: how to run the pipeline locally, environment variables, how each
       stage of the pipeline works

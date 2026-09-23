@@ -1,55 +1,56 @@
-# eve Agent App
+# Scoutly
 
-This project uses the eve framework: an agent is a directory of files under `agent/`, and eve compiles and runs it.
+Scoutly is a lead-qualification pipeline over the Y Combinator company directory.
+It scrapes companies, researches each one with an AI agent, and keeps only the
+ones that qualify — so the database holds clean, enriched, gold-standard rows and
+nothing else.
 
-For a content-only change to the root agent's identity, purpose, tone, or response guidelines, edit its existing authored instructions. Fresh projects use `agent/instructions.md`; a project may instead use `agent/instructions.ts` or files under `agent/instructions/`. You do not need to read the framework docs for a content-only instructions change. A fresh project already has its selected model in `agent/agent.ts`; preserve that file unless the user asks to change the model.
+Full detail lives in `docs/SPEC.md`. This file is the overview.
 
-## Read the docs before writing code
+## What it does
 
-```sh
-ls node_modules/eve/docs
-```
+1. **Scrape** — a Python script (`scraper/main.py`) pulls ~100 companies from YC's
+   public Algolia index into `raw.csv`, already filtered to US/Europe, team size
+   under 500, and founded 2015 or later.
+2. **Enrich** — a runner feeds `raw.csv` to the eve agent one row at a time. The
+   agent researches the company on the web and returns normalized fields:
+   `is_b2b`, `is_b2c`, `funding_rounds`, `annual_revenue`, `founded_year`.
+3. **Gate** — revenue must be under $200M USD. This is the one rule that can only
+   be checked after research. A company that fails is dropped, not flagged.
+4. **Store** — a plain script upserts the finished record into Supabase on
+   `source_url`. No agent or tool call is involved in the write; the record is
+   already in final shape.
+5. **Display** — a Next.js console on Vercel lists the companies with search and
+   filters, plus a pie chart of companies by industry.
 
-Start with `docs/README.md`: it maps each task to the page that covers it. Read that page before authoring tools, connections, channels, skills, subagents, schedules, or deployment. In a workspace or local package install, resolve the installed `eve` package location first. If the package docs are missing, use https://eve.dev/docs.
+The agent is also conversational: ask it about a company in plain English and it
+generates SQL, validates it as read-only, and runs it against Supabase.
 
-Use a bounded authoring loop:
+## The agent
 
-1. Read the relevant page and inspect only files you will modify or need to imitate.
-2. Stop discovery once the file location, imports, and definition shape are clear. Implement the smallest complete behavior the user requested.
-3. Run one narrow verification. Expand investigation only when it fails or the request needs project-specific details.
+Built with **eve** (Vercel's framework for durable backend AI agents). An agent is
+a directory of files under `agent/`, which eve compiles and runs.
 
-Follow links or inspect public types only when the routed page leaves the task unanswered. Do not recursively glob `node_modules`, enumerate the entire docs tree, or read unrelated scaffold files when the direct path is known. Package-manager links can hide files from recursive glob tools even though direct reads work.
+- `web_search` (eve built-in) — research a company
+- `enrich` — normalize findings to the standard schema
+- `customQueryGenerator` / `queryValidator` / `customQueryExecutor` — the
+  natural-language query path; the validator rejects anything destructive
+  (`DELETE`, `DROP`, `ALTER`, `UPDATE`, `TRUNCATE`, multi-statement input)
 
-## Prefer an existing integration
+The query tools run only when a person is talking to the agent, never during
+ingestion.
 
-When a task names an external product or service, search the registry before implementing its integration. For a generic capability, author a tool instead.
+## Working in this repo
 
-```sh
-eve registry search <query> --json
-eve registry view <item>
-```
-
-Prefer items whose `implementation` is `native`; use Chat SDK adapters when no native channel fits. `registry view` links the item's documentation.
-
-Install without driving interactive prompts:
-
-```sh
-eve add <item> --non-interactive
-```
-
-Exit code 0 means setup completed, 1 failed, and 2 needs an answer or a prerequisite. On exit 2, run the `next.command` from the final NDJSON event. For a non-secret question, replace its `<JSON value>` answer placeholder with the answer you collected; string values need JSON quotes. Never pass a secret in `--answer`. See `docs/install-integrations.mdx` for setup prerequisites.
-
-## Use eve for Vercel operations
-
-Use eve to link and deploy Vercel projects:
-
-```sh
-eve link --non-interactive --project <name-or-id> [--team <team-id-or-slug>]
-eve deploy --non-interactive --yes [--project <name-or-id>]
-```
-
-A setup may report `eve link` as a prerequisite; run it, then retry the continuation. When a completed setup event has `deploymentRequired: true`, run the `next` command it reports.
-
-## Validate the change
-
-Run the validation the task requests. When it does not establish the behavior you changed, run the narrowest relevant check.
+- Agent identity, purpose, and tone live in `agent/instructions.md`. Editing that
+  is a content change — no framework docs needed. Leave `agent/agent.ts` (model
+  selection) alone unless asked.
+- Before writing agent code, read the eve docs: `ls node_modules/eve/docs`, start
+  at `docs/README.md`, which routes each task to its page. Read that one page;
+  don't crawl the tree. If the package docs are missing, use https://eve.dev/docs.
+- When a task names an external product, check the registry before hand-rolling an
+  integration: `eve registry search <query> --json`, then
+  `eve add <item> --non-interactive`. Prefer `implementation: native` items.
+- Vercel operations go through eve: `eve link --non-interactive --project <name>`
+  and `eve deploy --non-interactive --yes`.
+- `pnpm scrape` runs the Python scraper. `pnpm typecheck` checks the TypeScript.
