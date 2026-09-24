@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@openrouter/ai-sdk-provider':
+        specifier: ^3.1.0
+        version: 3.1.0(ai@7.0.114(zod@4.5.4))(zod@4.5.4)
       '@vercel/connect':
         specifier: 2.2.0
         version: 2.2.0(ai@7.0.114(zod@4.5.4))(eve@0.66.3(ai@7.0.114(zod@4.5.4)))
@@ -45,6 +48,13 @@ packages:
   '@ai-sdk/provider@4.0.18':
     resolution: {integrity: sha512-+GZJIgz1jk86pwEbb3f1BD2bdoSKyWE4Jg4YUc7NMnMozbWemSKYZcw2F4nMaO5qwsL5A8RmioAKW81YktRpIQ==}
     engines: {node: '>=22'}
+
+  '@openrouter/ai-sdk-provider@3.1.0':
+    resolution: {integrity: sha512-BQy1TA9fKrh47s9ivsO6FY5QimN7GUF0i8Qon3pkxQclEgShso0dClpcWn8OIyPLEZZPFaFKgI8TW4S/O0p0Dw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      ai: ^7.0.0
+      zod: ^3.25.76 || ^4.1.8
 
   '@oxc-project/types@0.151.0':
     resolution: {integrity: sha512-J1yXrIlNDZVzE3ada310xeAw7nH8yCAyLPuUIsjKatFPmfn5bS1oW+cM+QsGOtVWd5nhSpbwZWx/rue+r5Z+PA==}
@@ -548,6 +558,11 @@ snapshots:
   '@ai-sdk/provider@4.0.18':
     dependencies:
       json-schema: 0.4.0
+
+  '@openrouter/ai-sdk-provider@3.1.0(ai@7.0.114(zod@4.5.4))(zod@4.5.4)':
+    dependencies:
+      ai: 7.0.114(zod@4.5.4)
+      zod: 4.5.4
 
   '@oxc-project/types@0.151.0': {}
 
