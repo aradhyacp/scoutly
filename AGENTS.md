@@ -16,10 +16,11 @@ Full detail lives in `docs/SPEC.md`. This file is the overview.
    agent researches the company on the web and returns normalized fields:
    `is_b2b`, `is_b2c`, `funding_rounds`, `annual_revenue`, `founded_year`.
 3. **Gate** — revenue must be under $200M USD. This is the one rule that can only
-   be checked after research. A company that fails is dropped, not flagged.
-4. **Store** — a plain script upserts the finished record into Supabase on
-   `source_url`. No agent or tool call is involved in the write; the record is
-   already in final shape.
+   be checked after research. A company that fails is dropped, not flagged. When
+   no revenue figure is published the agent estimates one and marks the row with
+   `is_annual_revenue_estimate`.
+4. **Store** — `enrich` upserts the qualified record into Supabase on
+   `source_url`, so re-processing updates rather than duplicates.
 5. **Display** — a Next.js console on Vercel lists the companies with search and
    filters, plus a pie chart of companies by industry.
 
@@ -31,11 +32,17 @@ generates SQL, validates it as read-only, and runs it against Supabase.
 Built with **eve** (Vercel's framework for durable backend AI agents). An agent is
 a directory of files under `agent/`, which eve compiles and runs.
 
-- `web_search` (eve built-in) — research a company
-- `enrich` — normalize findings to the standard schema
-- `customQueryGenerator` / `queryValidator` / `customQueryExecutor` — the
+- `web_fetch` — eve's built-in fetch, re-described with the research checklist
+  (what to find for each field, and where to look)
+- `enrich` — enforce the four rules, normalize, and upsert. The only write path
+- `custom_query_generator` / `query_validator` / `custom_query_executor` — the
   natural-language query path; the validator rejects anything destructive
-  (`DELETE`, `DROP`, `ALTER`, `UPDATE`, `TRUNCATE`, multi-statement input)
+  (`DELETE`, `DROP`, `ALTER`, `UPDATE`, `TRUNCATE`, multi-statement input,
+  any table other than `companies`) and the executor runs inside a read-only
+  transaction as a second barrier
+
+Shared code sits in `agent/lib/` (`rules.ts`, `schema.ts`, `db.ts`); the Postgres
+pool itself is `database/db.ts`.
 
 The query tools run only when a person is talking to the agent, never during
 ingestion.

@@ -31,7 +31,7 @@ Python Scraper
 Runner script (one row at a time)
       │
       ▼
-eve Agent ── web_search ──► enrich ──► validated record
+eve Agent ── web_fetch ──► enrich ──► Supabase (Postgres)
       │
       ▼
 Upsert script ──► Supabase (Postgres)
@@ -43,7 +43,7 @@ Next.js Console ──► Vercel
 Natural-language path (same agent, different entrypoint):
 
 ```
-User ──► eve Agent ──► customQueryGenerator ──► queryValidator ──► customQueryExecutor ──► Supabase
+User ──► eve Agent ──► custom_query_generator ──► query_validator ──► custom_query_executor ──► Supabase
 ```
 
 ---
@@ -96,13 +96,13 @@ and returns a validated record.
 
 | Tool | Kind | Purpose |
 |---|---|---|
-| `web_search` | eve built-in | Research a company on the open web to find `is_b2b`, `is_b2c`, `funding_rounds`, `annual_revenue`, `founded_year` |
-| `enrich` | authored | Normalize the researched values into the standard schema (types, units, USD amounts, canonical round names) |
-| `customQueryGenerator` | authored | Turn a natural-language question into a SQL query against the `companies` table |
-| `queryValidator` | authored | Reject unsafe or destructive SQL — no `DELETE`, `DROP`, `ALTER`, `UPDATE`, `TRUNCATE`, no multi-statement input; read-only queries only |
-| `customQueryExecutor` | authored | Execute the validated query against Supabase and return the rows |
+| `web_fetch` | eve built-in, re-described | Fetch pages to research a company: headquarters country, real founding year, `is_b2b`, `is_b2c`, `funding_rounds`, `annual_revenue`. Its description carries the per-field checklist and where to look for each fact |
+| `enrich` | authored | Enforce the four qualification rules, normalize the researched values, and upsert the company. The agent's only write path |
+| `custom_query_generator` | authored | Turn a natural-language question into a SQL query against the `companies` table |
+| `query_validator` | authored | Reject unsafe or destructive SQL — no `DELETE`, `DROP`, `ALTER`, `UPDATE`, `TRUNCATE`, no multi-statement input; read-only queries only |
+| `custom_query_executor` | authored | Execute the validated query inside a read-only transaction and return the rows |
 
-The query tools (`customQueryGenerator` → `queryValidator` → `customQueryExecutor`)
+The query tools (`custom_query_generator` → `query_validator` → `custom_query_executor`)
 run **only** on the natural-language path, when a person is talking to the agent —
 e.g. *"hey, pull info about this company xyz"*. They are never used by the
 ingestion pipeline.
@@ -112,7 +112,7 @@ ingestion pipeline.
 ## 3. Enrichment
 
 The runner script reads `raw.jsonl` and hands the agent **one record at a time**. For
-each row the agent researches the company with `web_search`, then passes the
+each record the agent researches the company with `web_fetch`, then passes the
 findings through `enrich` to produce a normalized record.
 
 ### Fields produced
@@ -121,16 +121,19 @@ findings through `enrich` to produce a normalized record.
 |---|---|---|
 | `is_b2b` | boolean | |
 | `is_b2c` | boolean | |
-| `funding_rounds` | array | each entry: round type, amount, date (where available) |
-| `annual_revenue` | number (USD) | estimated where exact figures aren't public |
+| `funding_rounds` | text[] | each element is a JSON object: round type, amount in USD, date (where available) |
+| `annual_revenue` | number (USD) | always produced; estimated where no figure is public |
+| `is_annual_revenue_estimate` | boolean | true when the revenue figure was estimated rather than reported |
 | `founded_year` | integer | confirms or corrects the batch-derived year from the scrape |
 
 All enrichment output is validated against a fixed schema before it is allowed
 downstream — no free-text or unvalidated fields reach storage.
 
-Writing to the database is done by a **plain script, not the agent** — no tool
-call is involved. By the time enrichment returns, the record is already in its
-final, complete shape, so the script upserts it directly.
+`enrich` is where the qualification gate and the write both live: it re-checks the
+region against the researched location, applies the revenue cap, normalizes every
+field to the table's shape, and upserts. A record that fails a rule returns a
+rejection and nothing is written. Nothing else in the agent can write to the
+database.
 
 ---
 
@@ -142,10 +145,15 @@ dropped. The DB therefore contains qualified companies only.
 
 | Rule | Condition | Enforced at |
 |---|---|---|
-| Region | `country_or_location` is in `{USA, Europe}` | scrape time and again in `web_search` even if its flagged in `raw.jsonl` or not flagged |
+| Region | `country_or_location` is in `{USA, Europe}` | scrape time, and again at enrichment time from what `web_fetch` found, whether or not the record was flagged in `raw.jsonl` |
 | Team size | `team_size <= 500` | scrape time |
 | Founded year | `founded_year >= 2015` | scrape time (YC batch year) |
-| Revenue | `annual_revenue < 200,000,000` (USD) | enrichment time — the value only exists after `web_search` |
+| Revenue | `annual_revenue < 200,000,000` (USD) | enrichment time — the value only exists after `web_fetch` |
+
+Revenue is never left blank. When research turns up no published figure the agent
+estimates one from team size, stage, and last round, and records that by setting
+`is_annual_revenue_estimate` to true — so a consumer of the table can always tell
+a reported number from an inferred one.
 
 The first three are already applied by the scraper ( exception in Region ), so a record in `raw.jsonl` has
 passed them. The revenue rule is the only one checked after enrichment; a company
@@ -166,10 +174,12 @@ Single table: `companies`.
 | `team_size` | integer | scraper |
 | `industry` | text | scraper |
 | `description` | text | scraper |
+| `batch` | text | scraper |
 | `is_b2b` | boolean | enrichment |
 | `is_b2c` | boolean | enrichment |
-| `funding_rounds` | array | enrichment |
+| `funding_rounds` | text[] | enrichment — one JSON-encoded round per element |
 | `annual_revenue` | numeric | enrichment |
+| `is_annual_revenue_estimate` | boolean, default false | enrichment |
 | `founded_year` | integer | scraper (from `batch`), confirmed by enrichment |
 | `created_at` | timestamptz | generated |
 | `updated_at` | timestamptz | generated |
@@ -182,10 +192,11 @@ pipeline updates existing rows rather than duplicating them.
 ## 6. Pipeline Run
 
 - `raw.jsonl` is read line by line; each record is one agent run (research → enrich).
-- A record that fails validation or the revenue gate is logged and skipped; it does
-  not stop the rest of the run.
+- A record that fails validation or a qualification rule is reported as rejected
+  and skipped; it does not stop the rest of the run.
 - Each surviving record is upserted on `source_url`, so re-running the pipeline is
   idempotent per company.
+- The runner itself is not built yet.
 
 ---
 
