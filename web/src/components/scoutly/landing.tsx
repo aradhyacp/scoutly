@@ -164,22 +164,10 @@ function MapLegend() {
 /* ------------------------------------------------------------ pipeline -- */
 
 const STEPS = [
-  {
-    title: "Pulled from YC’s directory",
-    body: "A scraper reads Y Combinator’s public company index and keeps companies in the US or Europe, with 500 people or fewer, from a 2015 batch or later.",
-  },
-  {
-    title: "Researched by an agent",
-    body: "An AI agent reads the web for each one: where it’s really based, when it was founded, who it sells to, its funding rounds, and its revenue.",
-  },
-  {
-    title: "Checked against the cap",
-    body: "Anything making $200M a year or more is dropped, and so is anything the research places outside the US or Europe. Dropped companies are never stored.",
-  },
-  {
-    title: "Added to the list",
-    body: "What’s left is saved and shows up here. When no revenue figure is published, the agent estimates one and it’s marked as an estimate.",
-  },
+  { title: "Scraped", body: "YC companies in the US or Europe, 500 people or fewer, founded 2015 or later." },
+  { title: "Researched", body: "An AI agent reads the web for each one: funding, revenue, who it sells to." },
+  { title: "Checked", body: "Anything at $200M a year or more is dropped, never stored." },
+  { title: "Listed", body: "The rest are saved here. Unpublished revenue is estimated and marked." },
 ];
 
 export function Pipeline() {
@@ -218,11 +206,18 @@ export function Pipeline() {
               </span>
               <div className="md:mt-6">
                 <h3 className="type-title text-xl text-ink">{step.title}</h3>
-                <p className="mt-3 max-w-[40ch] text-[0.95rem] leading-relaxed text-ink-2">{step.body}</p>
+                <p className="mt-2 max-w-[34ch] text-[0.95rem] leading-relaxed text-ink-2">{step.body}</p>
               </div>
             </motion.li>
           ))}
         </motion.ol>
+
+        <Link
+          href="/method"
+          className="mt-14 inline-flex h-11 items-center rounded-full border border-line-strong px-5 text-sm font-medium text-ink transition-colors hover:bg-raised"
+        >
+          Learn how the pipeline works
+        </Link>
       </div>
     </section>
   );
@@ -233,8 +228,15 @@ export function Pipeline() {
 export function TopCompanies() {
   const { companies, error, isLoading, retry } = useCompanies();
 
+  // Rank every company, estimates included: only a handful publish a figure, so a
+  // reported-only ranking padded the top five with $0 and $4M companies. Estimates
+  // stay visibly marked in the ledger; on a tie the reported figure goes first.
   const top = useMemo(
-    () => (companies ?? []).filter((c) => !c.revenueIsEstimate).sort((a, b) => b.annualRevenueUsd - a.annualRevenueUsd).slice(0, 5),
+    () =>
+      [...(companies ?? [])]
+        .filter((c) => c.annualRevenueUsd > 0)
+        .sort((a, b) => b.annualRevenueUsd - a.annualRevenueUsd || Number(a.revenueIsEstimate) - Number(b.revenueIsEstimate))
+        .slice(0, 5),
     [companies],
   );
 
@@ -245,10 +247,11 @@ export function TopCompanies() {
       <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
         <div>
           <h2 id="top-heading" className="type-title text-[clamp(2rem,4.5vw,3.25rem)] text-ink">
-            Highest reported revenue.
+            Highest revenue on the list.
           </h2>
           <p className="mt-4 max-w-[52ch] leading-relaxed text-ink-2">
-            The five biggest companies on the list with a published figure. Select one to see its funding history.
+            The five biggest earners. A figure with a ~ is the agent&rsquo;s estimate, because the company
+            hasn&rsquo;t published one. Select a company to see its funding history.
           </p>
         </div>
         {companies && (

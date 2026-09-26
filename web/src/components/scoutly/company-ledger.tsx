@@ -130,17 +130,22 @@ export function CompanyLedger({ companies, dimmed = false }: { companies: Compan
   );
 }
 
-/** The company's initial on a tile tinted with its industry colour: a quick visual anchor per row. */
+/**
+ * A gradient tile with the company's initial on top: a quick visual anchor per
+ * row. The gradient runs from the industry colour into a deeper shade of it, and
+ * the angle is seeded by the name so neighbouring rows in one industry still differ.
+ */
 export function Monogram({ name, industry, className }: { name: string; industry: string; className?: string }) {
   const colour = industryColour(industry);
+  const angle = 110 + ([...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 8) * 15;
   return (
     <span
       aria-hidden="true"
-      className={cn("type-title grid size-10 shrink-0 place-items-center rounded-lg text-base", className)}
+      className={cn("type-title grid size-10 shrink-0 place-items-center rounded-lg text-base text-white", className)}
       style={{
-        color: colour,
-        backgroundColor: `color-mix(in oklab, ${colour} 16%, transparent)`,
-        boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${colour} 30%, transparent)`,
+        backgroundImage: `linear-gradient(${angle}deg, color-mix(in oklab, ${colour} 88%, white) 0%, ${colour} 45%, color-mix(in oklab, ${colour} 45%, var(--plane)) 100%)`,
+        boxShadow: `inset 0 1px 0 rgb(255 255 255 / 0.18), inset 0 0 0 1px color-mix(in oklab, ${colour} 60%, transparent)`,
+        textShadow: "0 1px 2px rgb(0 0 0 / 0.35)",
       }}
     >
       {name.trim().charAt(0).toUpperCase()}
