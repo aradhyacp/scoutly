@@ -1,3 +1,4 @@
+# Build artifacts and local state
 node_modules
 .env*
 .eve
@@ -5,3 +6,14 @@ node_modules
 .output
 .nitro
 dist
+
+# Not used by the deployed agent. The scraper runs locally and writes
+# raw.jsonl, which is pipeline input, not something the agent reads at runtime.
+scraper
+docs
+
+# Local tooling
+.claude
+.agents
+.DS_Store
+*.tsbuildinfo
