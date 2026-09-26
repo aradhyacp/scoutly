@@ -135,8 +135,9 @@ routes.
 
 ## What this means for Scoutly, concretely
 
-1. **Write `agent/channels/eve.ts`.** Nothing else can proceed. Basic auth for the
-   pipeline caller plus `localDev()` is enough to start.
+1. ~~**Write `agent/channels/eve.ts`.**~~ Done — `httpBasic()` for the pipeline
+   caller, `vercelOidc()` for a future Vercel deploy, `localDev()` for the TUI.
+   Credentials live in `ROUTE_AUTH_BASIC_USERNAME` / `ROUTE_AUTH_BASIC_PASSWORD`.
 2. **Deploy.** Get a URL that isn't localhost.
 3. **Point the pipeline at it** with the Client SDK.
 4. **Add the console** with `withEve` and put `useEveAgent` beside the companies

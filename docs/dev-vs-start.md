@@ -48,7 +48,11 @@ real surface is `/eve/v1`:
 
 ## Why the 401 — this is the important part
 
-We have no `agent/channels/eve.ts`, so eve uses its default route-auth policy:
+> **Resolved.** `agent/channels/eve.ts` now configures `httpBasic()`, so a
+> credentialed caller gets a session from `eve start`. The walk below is why it
+> failed before, and why an *un*credentialed caller still gets 401.
+
+With no `agent/channels/eve.ts`, eve uses its default route-auth policy:
 
 ```
 [vercelOidc(), localDev(), placeholderAuth()]
@@ -88,8 +92,15 @@ pnpm exec eve dev http://localhost:3000
 pnpm exec eve invoke --url http://localhost:3000 "how many companies are stored?"
 ```
 
-Both still hit the same 401 against a bare `eve start` until auth exists. Against
-`eve dev`'s own server (:2000) they work, because `localDev()` accepts them.
+Against `eve dev` (:2000) both work with no credential, because `localDev()`
+accepts them. Against `eve start` (:3000), pass the basic-auth credentials from
+`.env`:
+
+```sh
+curl -u "$ROUTE_AUTH_BASIC_USERNAME:$ROUTE_AUTH_BASIC_PASSWORD" \
+  -X POST http://127.0.0.1:3000/eve/v1/session \
+  -H 'content-type: application/json' -d '{"message":"..."}'
+```
 
 ## Which to use when
 
