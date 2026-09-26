@@ -102,6 +102,40 @@ export async function upsertCompany(record: CompanyRecord): Promise<{ inserted: 
   return { inserted: result.rows[0]?.inserted ?? false };
 }
 
+/** Postgres type OIDs that `pg` hands back as strings: int8 (COUNT), numeric (AVG, revenue). */
+const NUMERIC_TYPE_IDS = new Set([20, 1700]);
+
+/**
+ * Tool results must be plain JSON, and a raw `pg` row is not: `timestamptz`
+ * arrives as a `Date`, which eve rejects as non-serializable. Normalise every
+ * value here so any SELECT the validator allows can be returned.
+ */
+function toJsonValue(value: unknown, numeric: boolean): unknown {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "bigint") return Number(value);
+  if (Buffer.isBuffer(value)) return value.toString("base64");
+  if (numeric && typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) || !Number.isInteger(parsed) ? parsed : value;
+  }
+  if (Array.isArray(value)) return value.map((item) => toJsonValue(item, numeric));
+  if (typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toJsonValue(item, false)]));
+  }
+  return value;
+}
+
+function toJsonRow(row: Record<string, unknown>, numericColumns: Set<string>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(row).map(([key, value]) => {
+      // Rounds are stored as JSON strings; hand them back as objects.
+      if (key === "funding_rounds" && Array.isArray(value)) return [key, decodeFundingRounds(value)];
+      return [key, toJsonValue(value, numericColumns.has(key))];
+    }),
+  );
+}
+
 /**
  * Run a validated SELECT. The read-only transaction is the backstop: the
  * validator is the first line of defence, this is the one that cannot be talked
@@ -120,7 +154,12 @@ export async function runReadOnlyQuery(
     const result = await client.query(sql, params);
 
     await client.query("COMMIT");
-    return { rows: result.rows, rowCount: result.rowCount ?? result.rows.length };
+
+    const numericColumns = new Set(
+      result.fields.filter((field) => NUMERIC_TYPE_IDS.has(field.dataTypeID)).map((field) => field.name),
+    );
+    const rows = result.rows.map((row) => toJsonRow(row, numericColumns));
+    return { rows, rowCount: result.rowCount ?? rows.length };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     throw error;

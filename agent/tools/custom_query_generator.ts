@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { COLUMN_NAMES, TABLE_NAME, isColumn } from "../lib/schema";
+import { COLUMNS, COLUMN_NAMES, TABLE_NAME, isColumn } from "../lib/schema";
 
 /**
  * Builds the SQL for the natural-language query path.
@@ -91,7 +91,13 @@ export default defineTool({
     "",
     "Describe what you want with `filters`, `columns`, `order_by`, and `limit` and this tool writes the statement with bound parameters. Fall back to `raw_sql` only for things the structured form cannot express, such as COUNT/AVG with GROUP BY.",
     "",
-    `Available columns: ${COLUMN_NAMES.join(", ")}.`,
+    `Columns of \`${TABLE_NAME}\` (name: Postgres type): ${Object.entries(COLUMNS).map(([name, type]) => `${name}: ${type}`).join(", ")}.`,
+    "",
+    "Things to know when writing raw_sql:",
+    "- `funding_rounds` is text[]; each element is a JSON string like {\"round\":\"Seed\",\"amount_usd\":2000000,\"date\":\"2019-03\"}. Search it with `array_to_string(funding_rounds, ' ') ILIKE '%series a%'`; there is no amount column to sum.",
+    "- `annual_revenue` is in USD. When `is_annual_revenue_estimate` is true the figure was estimated, not reported.",
+    "- `industry` holds YC's top-level category (e.g. B2B, Fintech, Healthcare, Consumer); `batch` looks like \"Winter 2016\".",
+    "- Match company names with `company_name ILIKE '%name%'`, never `=`, since case and suffixes vary.",
     "",
     "The SQL it returns is not yet approved to run. Pass it to query_validator next, then to custom_query_executor.",
   ].join("\n"),

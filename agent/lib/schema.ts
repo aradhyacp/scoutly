@@ -20,7 +20,7 @@ export const COLUMNS = {
   batch: "text",
   is_b2b: "boolean",
   is_b2c: "boolean",
-  funding_rounds: "array",
+  funding_rounds: "text[]",
   annual_revenue: "numeric",
   is_annual_revenue_estimate: "boolean",
   founded_year: "integer",
