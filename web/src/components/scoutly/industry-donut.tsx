@@ -84,6 +84,22 @@ export function IndustryDonut({
           onHighlight(null);
         }}
       >
+        {/* A clockwise sweep reveals the ring once, on load. */}
+        <defs>
+          <mask id="donut-sweep">
+            <motion.circle
+              r={(OUTER + 12) / 2}
+              fill="none"
+              stroke="white"
+              strokeWidth={OUTER + 12}
+              transform="rotate(-90)"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 1.1, ease: [0.65, 0, 0.35, 1], delay: 0.2 }}
+            />
+          </mask>
+        </defs>
+        <g mask="url(#donut-sweep)">
         {arcs.map((datum) => {
           const key = datum.data.key;
           const isFocus = focus === key;
@@ -109,6 +125,7 @@ export function IndustryDonut({
             />
           );
         })}
+        </g>
       </svg>
 
       {/* The hole carries the figure: the focused industry, or the whole set. */}
