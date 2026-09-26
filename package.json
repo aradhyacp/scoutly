@@ -14,6 +14,7 @@
     "start": "eve start",
     "typecheck": "tsc",
     "scrape": "cd scraper/ && python3 main.py",
+    "web" : "cd web && pnpm dev",
     "seed": "node --experimental-strip-types scripts/seed.ts",
     "trigger:dev": "pnpm dlx trigger.dev@latest dev",
     "trigger:deploy": "pnpm dlx trigger.dev@latest deploy"

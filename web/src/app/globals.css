@@ -1,0 +1,209 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * Scoutly — a shortlist of YC companies that cleared a four-rule bar.
+ *
+ * One deliberate theme rather than an automatic light/dark flip: a deep petrol
+ * plane read as a map at night, with a single amber used only for UI state
+ * (focus, the active filter, the selected row). Amber never appears inside the
+ * chart, where it could be mistaken for the yellow industry series.
+ *
+ * Every text/surface pairing below was measured, not assumed:
+ *   ink    on plane 15.0 · on raised 13.5 · on overlay 11.9
+ *   ink-2  on plane  8.0 · on raised  7.2 · on overlay  6.3
+ *   ink-3  on plane  6.1 · on raised  5.5 · on overlay  4.9   (all >= AA 4.5)
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, darkest to lightest. */
+  --plane: #0e1b22;
+  --raised: #14252d;
+  --overlay: #1a2f38;
+
+  /* Ink, strongest to quietest. */
+  --ink: #e7efee;
+  --ink-2: #9db3b6;
+  --ink-3: #869da1;
+
+  /* Hairlines. Structure only — never used to fence off every element. */
+  --line: rgb(231 239 238 / 0.09);
+  --line-strong: rgb(231 239 238 / 0.16);
+
+  /* The survey flag: focus, selection, the active filter. */
+  --signal: #f4b740;
+  --on-signal: #1a1405;
+
+  /*
+   * Industry series — the reference dark categorical steps, re-validated on
+   * this plane (#0E1B22) with the dataviz validator: all six pass lightness,
+   * chroma, contrast >= 3:1, worst adjacent CVD dE 8.4, normal-vision dE 19.3,
+   * and the donut's wrap-around pair (slot 6 -> slot 1) passes at dE 27.3.
+   * Colour follows the industry, never its rank — see lib/industries.ts.
+   */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-other: #6b7f84;
+
+  /* shadcn's variables, mapped onto the tokens above. */
+  --background: var(--plane);
+  --foreground: var(--ink);
+  --card: var(--raised);
+  --card-foreground: var(--ink);
+  --popover: var(--overlay);
+  --popover-foreground: var(--ink);
+  --primary: var(--signal);
+  --primary-foreground: var(--on-signal);
+  --secondary: var(--raised);
+  --secondary-foreground: var(--ink);
+  --muted: var(--raised);
+  --muted-foreground: var(--ink-2);
+  --accent: var(--overlay);
+  --accent-foreground: var(--ink);
+  --destructive: #e66767;
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--signal);
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-plane: var(--plane);
+  --color-raised: var(--raised);
+  --color-overlay: var(--overlay);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-signal: var(--signal);
+  --color-on-signal: var(--on-signal);
+
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    background: var(--plane);
+  }
+
+  body {
+    background: var(--plane);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01" on;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One visible focus treatment everywhere, in the signal colour. */
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgb(244 183 64 / 0.28);
+    color: var(--ink);
+  }
+}
+
+/*
+ * The type treatment is the page's personality, so it lives here as named
+ * roles rather than as ad-hoc utility soup. Archivo's width axis does the work:
+ * expanded for display, normal for reading.
+ */
+@layer components {
+  .type-display {
+    font-family: var(--font-sans);
+    font-stretch: 125%;
+    font-weight: 780;
+    letter-spacing: -0.035em;
+    line-height: 0.92;
+  }
+
+  .type-title {
+    font-family: var(--font-sans);
+    font-stretch: 112%;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+
+  /* Columns of numbers that have to line up. Never on a standalone figure. */
+  .figures {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* A thin, calm shimmer for loading placeholders. */
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--raised) 0%,
+    var(--overlay) 45%,
+    var(--raised) 90%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

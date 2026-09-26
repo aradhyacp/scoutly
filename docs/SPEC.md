@@ -207,9 +207,15 @@ Two pages:
 1. **Companies** — table of all companies and their full field set (raw and
    enriched). Includes a search box (by name) and filters (by region, industry,
    B2B/B2C). Every row in the table is already qualified.
-2. **Industries** — pie chart of company count by `industry`.
+2. **Industries** — pie chart of company count by `industry`, with the
+   breakdown list beside it. Selecting a slice or a row lists that industry's
+   companies below.
 
-Data is read directly from Supabase.
+The browser never talks to the database. The app lives in `web/` and reads
+through its own Route Handlers — `GET /api/companies` (optionally
+`?industry=`) and `GET /api/industries` — which query Supabase server-side.
+The database module is marked `server-only`, so importing it from a client
+component fails the build.
 
 ---
 
