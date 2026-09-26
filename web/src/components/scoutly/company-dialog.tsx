@@ -91,7 +91,9 @@ export function CompanyDialog({ company, onClose }: { company: Company | null; o
               role="dialog"
               aria-modal="true"
               aria-labelledby="company-dialog-title"
-              className="relative flex h-full w-full max-w-2xl flex-col overflow-hidden bg-overlay sm:h-auto sm:max-h-[88vh] sm:rounded-2xl sm:border sm:border-line-strong"
+              // Radius as a style, not a class, so the shared-layout grow from a row keeps round corners.
+              style={{ borderRadius: 16 }}
+              className="relative flex h-full w-full max-w-2xl flex-col overflow-hidden border border-line-strong bg-overlay sm:h-auto sm:max-h-[88vh]"
             >
               <CompanyRecord company={company} closeRef={closeRef} onClose={close} />
             </motion.div>
