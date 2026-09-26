@@ -13,10 +13,14 @@
     "eval": "eve eval",
     "start": "eve start",
     "typecheck": "tsc",
-    "scrape": "cd scraper/ && python3 main.py"
+    "scrape": "cd scraper/ && python3 main.py",
+    "seed": "node --experimental-strip-types scripts/seed.ts",
+    "trigger:dev": "pnpm dlx trigger.dev@latest dev",
+    "trigger:deploy": "pnpm dlx trigger.dev@latest deploy"
   },
   "dependencies": {
     "@openrouter/ai-sdk-provider": "^3.1.0",
+    "@trigger.dev/sdk": "^4.6.4",
     "@vercel/connect": "2.2.0",
     "ai": "^7.0.105",
     "eve": "^0.66.1",
@@ -24,9 +28,11 @@
     "zod": "4.5.4"
   },
   "devDependencies": {
+    "@trigger.dev/build": "^4.6.4",
     "@types/node": "24.x",
     "@types/pg": "^8.23.1",
     "just-bash": "^3.4.2",
+    "trigger.dev": "^4.6.4",
     "typescript": "7.0.2"
   },
   "engines": {

@@ -12,6 +12,12 @@ dist
 scraper
 docs
 
+# The pipeline is a separate deployment target (trigger.dev), not part of the
+# agent's Vercel build.
+trigger
+scripts
+trigger.config.ts
+
 # Local tooling
 .claude
 .agents
