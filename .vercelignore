@@ -18,10 +18,6 @@ trigger
 scripts
 trigger.config.ts
 
-# The Next.js console is its own Vercel project, with its Root Directory
-# set to web/. The agent deployment must not upload it.
-web
-
 # Local tooling
 .claude
 .agents
