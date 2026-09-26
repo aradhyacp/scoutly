@@ -4,13 +4,14 @@ import { Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { CompanyLedger, LedgerMessage, LedgerSkeleton } from "@/components/scoutly/company-ledger";
+import { IndustryMix } from "@/components/scoutly/industry-mix";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useCompanies } from "@/hooks/use-scoutly-data";
 import { pluralise } from "@/lib/format";
-import { industryColour } from "@/lib/industries";
+import { OTHER, industryBucket, industryColour } from "@/lib/industries";
 import type { Company } from "@/lib/types";
 
 type Market = "all" | "b2b" | "b2c";
@@ -48,7 +49,7 @@ export function CompanyExplorer() {
     return (companies ?? [])
       .filter((company) => !needle || company.name.toLowerCase().includes(needle))
       .filter((company) => region === ANY || company.region === region)
-      .filter((company) => industry === ANY || company.industry === industry)
+      .filter((company) => industry === ANY || company.industry === industry || (industry === OTHER && industryBucket(company.industry) === OTHER))
       .filter((company) => market === "all" || (market === "b2b" ? company.isB2b : company.isB2c))
       .sort(SORTS[sort].compare);
   }, [companies, query, region, industry, market, sort]);
@@ -69,8 +70,24 @@ export function CompanyExplorer() {
         Companies
       </h2>
 
-      {/* One filter row, above everything it scopes. Sticks while you scroll the list. */}
-      <div className="sticky top-0 z-20 -mx-4 border-b border-line bg-plane/85 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+      {/* The mix bar's bottom padding is the room the sticky filter band tucks into. */}
+      <div className="pb-16">
+        {companies && companies.length > 0 ? (
+          <IndustryMix
+            companies={companies}
+            selected={industry === ANY ? null : industryBucket(industry)}
+            onSelect={(bucket) => setIndustry(bucket ?? ANY)}
+          />
+        ) : (
+          <div aria-hidden="true" className="shimmer h-3 rounded-full" />
+        )}
+      </div>
+
+      {/*
+        One filter row, above everything it scopes. It sticks to the very top and pads down past the
+        floating header, so the band behind the header is solid and rows never show through the gap.
+      */}
+      <div className="sticky top-0 z-20 -mx-4 -mt-16 bg-plane/90 px-4 pb-3 pt-[4.75rem] backdrop-blur-md sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[12rem] flex-1 sm:max-w-xs">
             <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-3" />
@@ -108,6 +125,8 @@ export function CompanyExplorer() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ANY}>All industries</SelectItem>
+              {/* Only reachable from the mix bar, which groups the smaller industries. */}
+              {industry === OTHER && <SelectItem value={OTHER}>Other industries</SelectItem>}
               {industries.map((name) => (
                 <SelectItem key={name} value={name}>
                   <span aria-hidden="true" className="size-2 rounded-[2px]" style={{ backgroundColor: industryColour(name) }} />
@@ -179,7 +198,7 @@ export function CompanyExplorer() {
         </div>
       </div>
 
-      <div className="mt-2">
+      <div className="mt-1">
         {error && !companies ? (
           <LedgerMessage
             title="Couldn't load the companies"
