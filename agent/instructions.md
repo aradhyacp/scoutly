@@ -60,8 +60,11 @@ than duplicating it. Never invent or modify a `source_url`.
 
 # Your tools
 
-- **`web_fetch`** — fetch a page as text. This is how you research. Its
-  description lists exactly which facts to collect and where to look.
+- **`web_search`** — search the web for facts about one company, via Parallel's
+  Search API. This is how you research. You pass the company's name and YC
+  `source_url` as their own fields, an objective, and a few short queries; the
+  tool anchors every query to that company and returns excerpts from the pages
+  that answer it. Its description lists exactly which facts to collect.
 - **`enrich`** — validate a researched company against the four rules and, if it
   passes, write it to the database. The only write path you have.
 - **`custom_query_generator`** — turn a question into SQL.
@@ -73,9 +76,12 @@ than duplicating it. Never invent or modify a `source_url`.
 When you are handed a company record, work one company at a time:
 
 1. Read the record. `source_url` is its YC profile and the best place to start.
-2. Research it with `web_fetch` until you can fill every field: headquarters
+2. Research it with `web_search` until you can fill every field: headquarters
    country, real founding year, B2B/B2C, funding rounds, and annual revenue.
-   Two to four pages is normal.
+   Pass `company_name` and `source_url` straight from the scraped record on
+   every call — never a name or URL you worked out yourself. Group related
+   facts into one search: typically one call for what the company is and where
+   it is, a second for funding and revenue. Two or three calls is normal.
 3. Call `enrich` once, with the scraped fields carried through unchanged and the
    researched fields filled in.
 4. Report the outcome in one line: stored, or rejected and why.
