@@ -479,6 +479,12 @@ function RulesFigure({ companies }: { companies?: Company[] }) {
 
 /* A dot per company on a log revenue scale, with the cap as the right-hand wall. */
 const PLOT = { left: 132, right: 24, row: 20, top: 30, bottom: 34, width: 560 };
+/*
+ * One row per company stopped scaling: past about this many the plot is taller
+ * than the viewport, the rows crowd, and the point — how far every figure sits
+ * from the cap — is already made by the top of the ranking.
+ */
+const PLOT_LIMIT = 35;
 const FLOOR = 100_000;
 const TICKS = [100_000, 1_000_000, 10_000_000, 100_000_000];
 
@@ -488,7 +494,9 @@ function RevenuePlot({ companies }: { companies: Company[] }) {
   const inView = useInView(ref, { once: true, amount: 0.3 });
   const reduceMotion = useReducedMotion();
 
-  const rows = [...companies].sort((a, b) => b.annualRevenueUsd - a.annualRevenueUsd);
+  const ranked = [...companies].sort((a, b) => b.annualRevenueUsd - a.annualRevenueUsd);
+  const rows = ranked.slice(0, PLOT_LIMIT);
+  const hidden = ranked.length - rows.length;
   const plotWidth = PLOT.width - PLOT.left - PLOT.right;
   const height = PLOT.top + rows.length * PLOT.row + PLOT.bottom;
   const scale = (value: number) =>
@@ -497,10 +505,15 @@ function RevenuePlot({ companies }: { companies: Company[] }) {
 
   return (
     <Panel>
-      <p className="text-sm font-medium text-ink">Every company&rsquo;s revenue against the cap</p>
-      <p className="mt-1 text-sm text-ink-3">Log scale. Hover a dot for the figure.</p>
+      <p className="text-sm font-medium text-ink">
+        {hidden > 0 ? `The ${rows.length} highest revenues against the cap` : "Every company\u2019s revenue against the cap"}
+      </p>
+      <p className="mt-1 text-sm text-ink-3">
+        Log scale. Hover a dot for the figure.
+        {hidden > 0 && ` ${hidden} more ${hidden === 1 ? "company sits" : "companies sit"} below this range.`}
+      </p>
 
-      <svg ref={ref} viewBox={`0 0 ${PLOT.width} ${height}`} className="mt-4 block w-full" role="img" aria-label="Annual revenue of each company, all under the $200M cap">
+      <svg ref={ref} viewBox={`0 0 ${PLOT.width} ${height}`} className="mt-4 block w-full" role="img" aria-label={`Annual revenue of the ${rows.length} highest-earning companies, all under the $200M cap`}>
         {TICKS.map((tick) => (
           <g key={tick}>
             <line x1={scale(tick)} x2={scale(tick)} y1={PLOT.top - 6} y2={height - PLOT.bottom} stroke="var(--line)" />
