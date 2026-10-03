@@ -32,8 +32,13 @@ generates SQL, validates it as read-only, and runs it against Supabase.
 Built with **eve** (Vercel's framework for durable backend AI agents). An agent is
 a directory of files under `agent/`, which eve compiles and runs.
 
-- `web_fetch` — eve's built-in fetch, re-described with the research checklist
-  (what to find for each field, and where to look)
+- `web_search` — web research via Parallel's Search API. It takes the company's
+  name and YC `source_url` as their own fields, an objective, and a few short
+  queries, and returns excerpts from the pages that answer them. The tool — not
+  the model — folds the name and URL into the objective and anchors every query
+  to that company, so research cannot drift onto a similarly-named one. Its
+  description carries the research checklist (what to find for each field, and
+  where to look). Needs `PARALLEL_API_KEY`
 - `enrich` — enforce the four rules, normalize, and upsert. The only write path
 - `custom_query_generator` / `query_validator` / `custom_query_executor` — the
   natural-language query path; the validator rejects anything destructive
@@ -61,3 +66,8 @@ ingestion.
 - Vercel operations go through eve: `eve link --non-interactive --project <name>`
   and `eve deploy --non-interactive --yes`.
 - `pnpm scrape` runs the Python scraper. `pnpm typecheck` checks the TypeScript.
+- The console server-renders its data and seeds SWR with it, so pages arrive
+  with their numbers already filled in. Anything that reads companies on the
+  server goes through `getInitialData()` in `web/src/lib/server/companies.ts`;
+  the route segments carry `revalidate = 300`, so the table is read at most once
+  every five minutes per route.

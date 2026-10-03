@@ -25,7 +25,7 @@ raw.jsonl ──► seed task ──► batchTrigger 100 runs
                           │
                     POST /eve/v1/session   ← the deployed eve agent
                           │
-                    web_fetch → enrich → Supabase
+                    web_search → enrich → Supabase
 ```
 
 Each trigger.dev run is one company and one eve session. That is the unit of

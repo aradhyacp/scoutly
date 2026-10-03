@@ -49,7 +49,7 @@ process-company  ×30   ← queue "enrichment", 3 at a time
       │  (basic auth, message = the company row, outputSchema = the result shape)
       ▼
 eve agent on Vercel
-      │  web_fetch ─► research the company
+      │  web_search ─► research the company
       │  enrich    ─► check the four rules, upsert if all pass
       ▼
 Supabase                        the task never touches the database itself

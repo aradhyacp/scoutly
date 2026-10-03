@@ -51,8 +51,8 @@ trigger.dev: process-company (one run per company, 3 at a time)
                             |  POST /eve/v1/session
                             v
 eve agent on Vercel
-    web_fetch  --->  research the company
-    enrich     --->  check every rule, write it if it passes
+    web_search  --->  research the company (Parallel Search API)
+    enrich      --->  check every rule, write it if it passes
                             |
                             v
 Supabase Postgres (companies)
@@ -98,7 +98,7 @@ one from team size, stage and funding, and sets `is_annual_revenue_estimate` to
 |-- agent/            The eve agent
 |   |-- agent.ts        Model and runtime config
 |   |-- instructions.md Identity, rules, schema and the two playbooks
-|   |-- tools/          web_fetch, enrich and the three query tools
+|   |-- tools/          web_search, enrich and the three query tools
 |   |-- lib/            Qualification rules, schema mirror, database access
 |   |-- channels/       Route auth for the agent's HTTP API
 |   `-- sandbox.ts      A lightweight sandbox; the agent never uses it
@@ -161,7 +161,7 @@ results, and judge whether a company qualifies. That is the agent's job.
 
 | Tool | Kind | What it does |
 | --- | --- | --- |
-| `web_fetch` | eve built-in, re-described | Fetches pages to research a company. Its description is the research brief: which facts to find and the best source for each |
+| `web_search` | Authored, on Parallel's Search API | Researches a company. Takes its name and YC `source_url` as typed fields plus an objective and a few short queries; the tool composes the objective and prefixes the company name to every query, so a search cannot drift onto a similarly-named company. Its description is the research brief: which facts to find and the best source for each |
 | `enrich` | Authored | Enforces all four rules, normalises the researched values, and upserts the company. The only write path in the agent |
 | `custom_query_generator` | Authored | Turns a question into parameterised SQL against `companies` |
 | `query_validator` | Authored | Rejects anything that is not a single read-only `SELECT` on `companies` |
@@ -174,7 +174,7 @@ The eve defaults for shell access and file writes are switched off
 
 | Path | Triggered by | Tools used |
 | --- | --- | --- |
-| Enrichment | A scraped company handed over by the pipeline | `web_fetch`, then `enrich` |
+| Enrichment | A scraped company handed over by the pipeline | `web_search`, then `enrich` |
 | Conversation | A person asking a question | `custom_query_generator`, `query_validator`, `custom_query_executor`, always in that order |
 
 The query tools never run during enrichment, and `enrich` never runs during a
@@ -298,12 +298,14 @@ row instead of duplicating it.
 
 ## 5. Web console
 
-The console in `web/` is a Next.js 16 app with two pages.
+The console in `web/` is a Next.js 16 app with four pages.
 
 | Page | Shows |
 | --- | --- |
-| `/` Companies | A shader hero with the live company count, then every stored company with name search, region, industry, B2B/B2C filters and sorting. Selecting a company opens its full record, including funding history |
+| `/` Home | A shader hero with the live company count, a map placing every company by founding year against revenue, the four rules as the map's key, and the highest earners on the list |
+| `/companies` Companies | Every stored company with name search, region, industry and B2B/B2C filters. Selecting a company opens its full record, including funding history |
 | `/industries` Industries | A donut chart of companies per industry with the breakdown list beside it. Selecting a slice or a row lists that industry's companies |
+| `/method` How it works | The pipeline as five numbered steps, each with a figure built from the live data, and a plot of the highest revenues against the $200M cap |
 
 ### The browser never touches the database
 
@@ -320,6 +322,24 @@ The database module is marked `server-only`, so importing it from a client
 component fails the build. Neither the connection string nor the `pg` driver
 appears in any client bundle.
 
+### The pages arrive with their data
+
+Those routes are the fallback path rather than the common one. The root layout
+reads the companies and the industry counts on the server and hands them to SWR
+as its cache fallback, so a page is rendered complete — the headline count is in
+the HTML, not a skeleton waiting on a request that only starts once the
+JavaScript has booted.
+
+| Where | What it does |
+| --- | --- |
+| `getInitialData()` in `lib/server/companies.ts` | Reads both queries once per render. Returns `null` rather than throwing on failure, so a database outage falls back to client fetching and the existing error-and-retry UI still works |
+| `revalidate = 300` on the root layout | Makes every page static with a five-minute window, so the table is read at most once per route per five minutes however many people are reading |
+| `revalidateIfStale: false` in `Providers` | Stops SWR re-fetching data the server just rendered. Keys with no seeded data — the per-industry list — still fetch normally |
+| `s-maxage=300` on both handlers | Lets the CDN serve what client fetches remain |
+
+The trade-off is staleness: a newly enriched company appears once the page
+revalidates, within five minutes.
+
 ### Stack
 
 | Concern | Choice |
@@ -329,7 +349,7 @@ appears in any client bundle.
 | Components | shadcn/ui primitives on Radix |
 | Effects | reactbits Threads (hero shader) and CountUp, aceternity expandable card pattern |
 | Chart | Hand-built SVG donut with `d3-shape` |
-| Data fetching | SWR against the console's own API |
+| Data fetching | Server-rendered on the page, seeded into SWR; the console's own API is the fallback |
 | Database | `pg`, server-side only |
 
 ### Design notes
@@ -354,6 +374,7 @@ appears in any client bundle.
 | Python | 3.12 |
 | A Supabase project | With the `companies` table from the schema above |
 | An OpenRouter API key | For the agent's model |
+| A Parallel API key | For `web_search`, the agent's only route to the web — from [platform.parallel.ai](https://platform.parallel.ai) |
 
 ### Steps
 
@@ -388,6 +409,7 @@ Each component gets only the variables it needs.
 | Variable | Agent | trigger.dev | Console | Purpose |
 | --- | :---: | :---: | :---: | --- |
 | `OPENROUTER_API_KEY` | Yes | | | The agent's model provider |
+| `PARALLEL_API_KEY` | Yes | | | Parallel Search API, used by `web_search`. Without it the agent cannot research, so enrichment cannot run |
 | `SUPABASE_URL` | Yes | | Yes | Postgres connection string |
 | `ROUTE_AUTH_BASIC_USERNAME` | Yes | Yes | | Basic auth for the agent's API |
 | `ROUTE_AUTH_BASIC_PASSWORD` | Yes | Yes | | Basic auth for the agent's API. Stored as a secret on trigger.dev |

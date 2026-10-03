@@ -31,7 +31,7 @@ Python Scraper
 Runner script (one row at a time)
       │
       ▼
-eve Agent ── web_fetch ──► enrich ──► Supabase (Postgres)
+eve Agent ── web_search ──► enrich ──► Supabase (Postgres)
       │
       ▼
 Upsert script ──► Supabase (Postgres)
@@ -96,7 +96,7 @@ and returns a validated record.
 
 | Tool | Kind | Purpose |
 |---|---|---|
-| `web_fetch` | eve built-in, re-described | Fetch pages to research a company: headquarters country, real founding year, `is_b2b`, `is_b2c`, `funding_rounds`, `annual_revenue`. Its description carries the per-field checklist and where to look for each fact |
+| `web_search` | authored, Parallel Search API | Research a company: headquarters country, real founding year, `is_b2b`, `is_b2c`, `funding_rounds`, `annual_revenue`. Takes `company_name` and the YC `source_url` as typed fields plus an objective and a few short queries; the tool composes the objective and anchors every query to that company, so a search cannot drift onto a similarly-named one. Its description carries the per-field checklist and where to look for each fact |
 | `enrich` | authored | Enforce the four qualification rules, normalize the researched values, and upsert the company. The agent's only write path |
 | `custom_query_generator` | authored | Turn a natural-language question into a SQL query against the `companies` table |
 | `query_validator` | authored | Reject unsafe or destructive SQL — no `DELETE`, `DROP`, `ALTER`, `UPDATE`, `TRUNCATE`, no multi-statement input; read-only queries only |
@@ -112,8 +112,10 @@ ingestion pipeline.
 ## 3. Enrichment
 
 The runner script reads `raw.jsonl` and hands the agent **one record at a time**. For
-each record the agent researches the company with `web_fetch`, then passes the
-findings through `enrich` to produce a normalized record.
+each record the agent researches the company with `web_search`, then passes the
+findings through `enrich` to produce a normalized record. Research is grouped
+rather than page-by-page: typically one search for what the company is and where
+it is, a second for funding and revenue.
 
 ### Fields produced
 
@@ -145,10 +147,10 @@ dropped. The DB therefore contains qualified companies only.
 
 | Rule | Condition | Enforced at |
 |---|---|---|
-| Region | `country_or_location` is in `{USA, Europe}` | scrape time, and again at enrichment time from what `web_fetch` found, whether or not the record was flagged in `raw.jsonl` |
+| Region | `country_or_location` is in `{USA, Europe}` | scrape time, and again at enrichment time from what `web_search` found, whether or not the record was flagged in `raw.jsonl` |
 | Team size | `team_size <= 500` | scrape time |
 | Founded year | `founded_year >= 2015` | scrape time (YC batch year) |
-| Revenue | `annual_revenue < 200,000,000` (USD) | enrichment time — the value only exists after `web_fetch` |
+| Revenue | `annual_revenue < 200,000,000` (USD) | enrichment time — the value only exists after `web_search` |
 
 Revenue is never left blank. When research turns up no published figure the agent
 estimates one from team size, stage, and last round, and records that by setting
@@ -217,13 +219,23 @@ through its own Route Handlers — `GET /api/companies` (optionally
 The database module is marked `server-only`, so importing it from a client
 component fails the build.
 
+Those routes are the fallback path, not the common one. The root layout reads
+the companies and the industry counts on the server and hands them to SWR as
+its cache fallback, so a page arrives with its numbers already rendered instead
+of fetching them after it boots. The route segments carry `revalidate = 300`
+and the handlers send `s-maxage=300`, so however many people are reading, the
+table is queried at most once every five minutes per route. If that server read
+fails the page still renders and the client falls back to fetching, which is
+what keeps the existing error-and-retry UI meaningful.
+
 ---
 
 ## 8. Deployment
 
 - Web app ( Next.js ) is only deployed to Vercel.
 - Environment variables required: Supabase connection details, LLM provider API
-  key (exact names documented in `.env.example`).
+  key, and the Parallel Search API key used for research (exact names documented
+  in `.env.example`).
 - Trigger.dev runs the ai pipeline 
 - AI agent will be accessable via the Local Machine only
 
