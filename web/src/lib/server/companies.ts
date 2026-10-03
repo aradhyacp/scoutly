@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { getPool } from "./db";
 import type { Company, FundingRound, IndustryCount, Region } from "@/lib/types";
 
@@ -169,3 +171,31 @@ export async function countByIndustry(): Promise<IndustryCount[]> {
   );
   return result.rows.map((row) => ({ industry: row.industry ?? "Unspecified", count: row.count }));
 }
+
+/**
+ * The server-rendered seed for the client cache.
+ *
+ * Every page used to paint, boot its JavaScript, and only then ask
+ * `/api/companies` for the data — so the headline count sat shimmering for as
+ * long as the round trip plus the query took. Reading here instead puts the
+ * rows in the HTML, and `Providers` hands them to SWR as its fallback, so the
+ * first paint is already the finished page.
+ *
+ * `cache` dedupes this within a render, and the route segment's `revalidate`
+ * caps how often it reaches Postgres at all. A failure is not thrown: the page
+ * still renders, the client falls back to fetching, and the existing error and
+ * retry UI handles it from there.
+ */
+export const getInitialData = cache(async (): Promise<{
+  companies: Company[];
+  industries: IndustryCount[];
+  total: number;
+} | null> => {
+  try {
+    const [companies, industries] = await Promise.all([listCompanies(), countByIndustry()]);
+    return { companies, industries, total: industries.reduce((sum, row) => sum + row.count, 0) };
+  } catch (error) {
+    console.error("[server/companies] initial load failed, falling back to client fetch", error);
+    return null;
+  }
+});
