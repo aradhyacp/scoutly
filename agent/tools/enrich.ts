@@ -88,7 +88,7 @@ export default defineTool({
   description: [
     "Validate a researched company against the qualification rules and, if it passes, write it to the database.",
     "",
-    "This is the only way anything reaches the database. Call it once per company, after researching that company with web_fetch — never before, and never with placeholder or guessed values for the research fields.",
+    "This is the only way anything reaches the database. Call it once per company, after researching that company with web_search — never before, and never with placeholder or guessed values for the research fields.",
     "",
     "The tool enforces the rules itself and rejects the company if any fails:",
     `- headquarters must be in the US or Europe (checked against the country in country_or_location)`,
