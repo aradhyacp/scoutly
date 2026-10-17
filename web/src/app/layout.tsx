@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Archivo } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 import { Providers } from "@/components/scoutly/providers";
 import { SiteFooter } from "@/components/scoutly/site-footer";
@@ -52,6 +53,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <main className="flex-1">{children}</main>
           <SiteFooter />
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
