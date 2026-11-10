@@ -64,16 +64,16 @@ export function ShortlistMap() {
   ];
 
   return (
-    <section id="map" aria-labelledby="map-heading" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-28 sm:px-6">
+    <section id="map" aria-labelledby="map-heading" className="mx-auto max-w-6xl scroll-mt-24 px-4 pb-28 pt-16 sm:px-6">
       <div className="grid gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,1fr)_17rem]">
         <div className="lg:col-span-2">
-          <h2 id="map-heading" className="type-title max-w-[20ch] text-[clamp(2rem,4.5vw,3.25rem)] text-ink">
-            The edges of the map are the bar.
+          <h2 id="map-heading" className="type-hero max-w-[22ch] text-[clamp(2rem,4.4vw,3.4rem)] text-ink">
+            The market, already researched.
           </h2>
-          <p className="mt-5 max-w-[60ch] leading-relaxed text-ink-2">
-            Each dot is a company, placed by the year it was founded and what it makes a year. Nothing
-            on the list can sit left of 2015 or above $200M. Hover a dot to see who it is, or open it
-            for the full record.
+          <p className="mt-4 max-w-[62ch] leading-relaxed text-ink-2">
+            Every dot is a real company the agent has researched and qualified, placed by the year it was
+            founded and what it makes a year. Hover a dot to see who it is, or open it for funding,
+            revenue and who it sells to.
           </p>
         </div>
 
@@ -101,7 +101,7 @@ export function ShortlistMap() {
 
         {/* The four rules double as the map's key: point at one to light its edge. */}
         <div>
-          <h3 className="text-sm font-semibold text-ink">To make the list, a company has to be</h3>
+          <h3 className="text-sm font-semibold text-ink">The default profile, yours to change</h3>
           <ul className="mt-4 border-t border-line" onPointerLeave={() => setActiveRule(null)}>
             {rules.map((rule) => (
               <li key={rule.key} className="border-b border-line">
