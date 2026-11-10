@@ -6,6 +6,12 @@
       "sourceType": "github",
       "skillPath": "skills/eve/SKILL.md",
       "computedHash": "4833349453c45c606f79202e495b7bbc42ea380f329f3beee36b9927763f19ef"
+    },
+    "marketing-psychology": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceType": "github",
+      "skillPath": "skills/marketing-psychology/SKILL.md",
+      "computedHash": "172a25a97b4c7b67893d32322d83c82f982c9a96961ad9cfe139931fe67a0be7"
     }
   }
 }
