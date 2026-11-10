@@ -207,3 +207,87 @@
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * The frame: the landing page is drawn inside a ruled container, like a sheet
+ * of survey paper. Rails mark its edges, hatched bands separate its sections
+ * and small corner ticks pin each panel in place.
+ */
+@layer components {
+  /* A lighter, quieter display cut for the hero, so the promise reads calmly. */
+  .type-hero {
+    font-family: var(--font-sans);
+    font-stretch: 100%;
+    font-weight: 430;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+
+  .hatch {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--line) 0 1px,
+      transparent 1px 9px
+    );
+  }
+
+  /* A soft field of survey points, faded out toward the edges. */
+  .dot-field {
+    background-image: radial-gradient(circle, rgb(231 239 238 / 0.16) 1px, transparent 1.4px);
+    background-size: 18px 18px;
+    mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+  }
+
+  /* Halftone screen laid over the closing banner's backdrop. */
+  .halftone {
+    background-image: radial-gradient(circle, rgb(0 0 0 / 0.55) 1.1px, transparent 1.6px);
+    background-size: 5px 5px;
+  }
+}
+
+/* A spark of signal travelling along a connector wire (pathLength = 1). */
+@keyframes wire-pulse {
+  from {
+    stroke-dashoffset: 1.12;
+  }
+  to {
+    stroke-dashoffset: -0.12;
+  }
+}
+
+.wire-pulse {
+  stroke-dasharray: 0.12 1;
+  animation: wire-pulse 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.bob {
+  animation: bob 5s ease-in-out infinite;
+}
+
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.caret {
+  animation: caret 1s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wire-pulse,
+  .bob,
+  .caret {
+    animation: none;
+  }
+}

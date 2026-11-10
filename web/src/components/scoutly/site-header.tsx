@@ -91,7 +91,7 @@ export function SiteHeader() {
               pathname.startsWith("/companies") && "sm:hidden",
             )}
           >
-            Browse companies
+            Explore the market
           </Link>
           <button
             type="button"

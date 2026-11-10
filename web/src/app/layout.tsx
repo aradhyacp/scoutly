@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Archivo } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 
+import { Rails } from "@/components/scoutly/frame";
 import { Providers } from "@/components/scoutly/providers";
 import { SiteFooter } from "@/components/scoutly/site-footer";
 import { SiteHeader } from "@/components/scoutly/site-header";
@@ -29,9 +30,9 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Scoutly", template: "%s | Scoutly" },
+  title: { default: "Scoutly · Find the companies that move your business forward", template: "%s | Scoutly" },
   description:
-    "Y Combinator companies that pass the bar: US or Europe, 500 people or fewer, founded 2015 or later, under $200M in revenue.",
+    "AI-powered B2B prospecting for growing teams. Scoutly researches companies, qualifies them against your ideal customer profile, and delivers a shortlist of customers, design partners and strategic partners in Slack, Teams and beyond.",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
@@ -50,7 +51,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <Providers fallback={fallback}>
           <SiteHeader />
-          <main className="flex-1">{children}</main>
+          <main className="relative isolate flex-1">
+            <Rails />
+            <div className="relative">{children}</div>
+          </main>
           <SiteFooter />
         </Providers>
         <Analytics />
