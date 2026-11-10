@@ -12,9 +12,13 @@ export function SiteFooter() {
             <Logo className="size-6" />
             <span className="type-title">Scoutly</span>
           </Link>
-          <p className="mt-4 text-sm leading-relaxed text-ink-3">
-            Companies come from Y Combinator&rsquo;s public directory. Revenue, funding, and location are
-            researched by an AI agent and can be wrong, so check the YC profile before relying on a figure.
+          <p className="mt-4 text-sm leading-relaxed text-ink-2">
+            Find the companies that move your business forward.
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-ink-3">
+            Scoutly identifies and qualifies opportunities; it doesn&rsquo;t promise a company will buy. Today&rsquo;s
+            market comes from Y Combinator&rsquo;s public directory, and figures are researched by an AI agent,
+            so check the source before relying on one.
           </p>
         </div>
         <nav aria-label="Footer">
