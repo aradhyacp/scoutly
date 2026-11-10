@@ -1,109 +1,125 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 
 import Magnet from "@/components/Magnet";
-import { AnimatedCount } from "@/components/scoutly/animated-count";
+import { Corners, Hatch } from "@/components/scoutly/frame";
+import { SlackReplica } from "@/components/scoutly/slack-replica";
 import { useCompanies } from "@/hooks/use-scoutly-data";
+import { industryColour } from "@/lib/industries";
 
 /*
- * The page's one orchestrated moment starts here: the headline rises out of a
- * mask, the count runs up, and the map below then fills in dot by dot. Threads
- * reads as topographic contour lines — a scout's map — drawn in a pale petrol
- * so the headline stays the thing you read. WebGL only runs in the browser, so
- * it is loaded client-side and the hero is fully legible before it arrives.
+ * The opening sheet: one calm promise on the left, the product doing its job
+ * on the right. A real Slack-styled channel loops through a teammate asking
+ * and Scoutly answering, so the hero shows rather than tells. Below it, a
+ * strip of real company names the agent has already researched.
  */
-const Threads = dynamic(() => import("@/components/Threads"), { ssr: false });
-
-/** #8FB8BD — pale petrol, as the 0-1 RGB triple the shader expects. */
-const CONTOUR: [number, number, number] = [0.56, 0.72, 0.74];
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-function Rise({ delay, children }: { delay: number; children: React.ReactNode }) {
-  return (
-    <span className="block overflow-hidden pb-[0.08em]">
-      <motion.span
-        className="block"
-        initial={{ y: "105%" }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.9, ease: EASE, delay }}
-      >
-        {children}
-      </motion.span>
-    </span>
-  );
-}
-
 export function Hero() {
-  const { companies, isLoading, error } = useCompanies();
-  const count = companies?.length;
   const reduceMotion = useReducedMotion();
 
   return (
-    <section className="relative isolate overflow-hidden" aria-labelledby="hero-heading">
-      <div className="absolute inset-0 -z-10 opacity-60">
-        <Threads color={CONTOUR} amplitude={1.4} distance={0.1} enableMouseInteraction />
-      </div>
-      {/* Fades the lines into the plane so the map below starts clean. */}
-      <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-10 h-48 bg-gradient-to-b from-transparent to-plane" />
+    <>
+      <div className="h-20 sm:h-24" />
+      <Hatch />
 
-      <div className="mx-auto max-w-6xl px-4 pb-16 pt-36 sm:px-6 sm:pb-20 sm:pt-48">
-        <h1 id="hero-heading" className="type-display text-[clamp(2.75rem,8vw,6.25rem)] text-ink">
-          <Rise delay={0.05}>
-            {isLoading || count === undefined ? (
-              error ? (
-                "YC companies"
-              ) : (
-                <>
-                  <span className="shimmer inline-block h-[0.8em] w-[1.6ch] translate-y-[0.08em] rounded-md align-baseline" />
-                  <span className="sr-only">Loading</span> YC
-                </>
-              )
-            ) : (
-              <>
-                <AnimatedCount value={count} /> YC
-              </>
-            )}
-          </Rise>
-          <Rise delay={0.15}>{count === 1 ? "company made" : "companies made"}</Rise>
-          <Rise delay={0.25}>the shortlist.</Rise>
-        </h1>
+      <section aria-labelledby="hero-heading" className="mx-auto max-w-6xl">
+        <div className="relative grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+          <Corners />
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.55 }}
-          className="mt-10 flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between"
-        >
-          <p className="max-w-[52ch] text-base leading-relaxed text-ink-2 sm:text-lg">
-            Every company here is based in the US or Europe, has 500 people or fewer, was founded in
-            2015 or later, and makes under $200M a year. An AI agent researched each one before it
-            was added.
-          </p>
-
-          <div className="flex shrink-0 flex-wrap gap-3">
-            {/* reactbits Magnet: the buttons lean toward the pointer as it nears them. */}
-            <Magnet padding={48} magnetStrength={7} disabled={!!reduceMotion}>
-              <Link
-                href="/companies"
-                className="inline-flex h-12 items-center rounded-full bg-signal px-6 font-semibold text-on-signal transition-opacity hover:opacity-90"
+          <div className="flex flex-col justify-between gap-12 px-4 py-14 sm:px-10 sm:py-20">
+            <h1 id="hero-heading" className="type-hero text-[clamp(2.4rem,4.6vw,3.9rem)] text-ink">
+              <motion.span
+                className="block"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: EASE }}
               >
-                Browse the companies
-              </Link>
-            </Magnet>
-            <Magnet padding={48} magnetStrength={7} disabled={!!reduceMotion}>
-              <a
-                href="#map"
-                className="inline-flex h-12 items-center rounded-full border border-line-strong px-6 font-medium text-ink transition-colors hover:bg-raised"
-              >
-                See them on the map
-              </a>
-            </Magnet>
+                Find the companies that move your business forward.
+              </motion.span>
+            </h1>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.35 }}
+            >
+              <p className="max-w-[40ch] text-lg leading-relaxed text-ink-2">
+                Your next customers and design partners, found and qualified by an AI agent your team can
+                ask in Slack.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Magnet padding={40} magnetStrength={7} disabled={!!reduceMotion}>
+                  <Link
+                    href="/companies"
+                    className="inline-flex h-12 items-center rounded-full bg-signal px-6 font-semibold text-on-signal transition-opacity hover:opacity-90"
+                  >
+                    Explore your market
+                  </Link>
+                </Magnet>
+                <Magnet padding={40} magnetStrength={7} disabled={!!reduceMotion}>
+                  <a
+                    href="#how"
+                    className="inline-flex h-12 items-center rounded-full bg-raised px-6 font-medium text-ink transition-colors hover:bg-overlay"
+                  >
+                    How it works
+                  </a>
+                </Magnet>
+              </div>
+            </motion.div>
           </div>
-        </motion.div>
+
+          <div className="border-t border-line bg-raised/30 px-3 py-8 sm:px-8 sm:py-12 lg:border-l lg:border-t-0">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, ease: EASE, delay: 0.2 }}
+            >
+              <SlackReplica />
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      <Hatch />
+      <ResearchedStrip />
+    </>
+  );
+}
+
+/** Real names from the researched market, set like a row of customer logos. */
+function ResearchedStrip() {
+  const { companies } = useCompanies();
+  const names = companies?.slice(0, 6) ?? [];
+
+  return (
+    <section aria-label="Companies already researched" className="mx-auto max-w-6xl">
+      <div className="relative">
+        <Corners />
+        <p className="border-b border-line px-4 py-3 font-mono text-xs uppercase tracking-[0.16em] text-ink-3 sm:px-6">
+          Already researched in the YC market
+          {companies && <span className="text-ink-2"> · {companies.length} companies and counting</span>}
+        </p>
+        <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          {(names.length ? names : Array.from({ length: 6 }, () => null)).map((company, index) => (
+            <li
+              key={company?.id ?? index}
+              className="flex h-24 items-center justify-center gap-2 border-b border-line px-4 text-center sm:border-r lg:border-b-0 [&:nth-child(6n)]:border-r-0"
+            >
+              {company ? (
+                <>
+                  <span aria-hidden="true" className="size-2 shrink-0 rounded-[2px]" style={{ backgroundColor: industryColour(company.industry) }} />
+                  <span className="type-title truncate text-lg text-ink-2">{company.name}</span>
+                </>
+              ) : (
+                <span className="shimmer h-4 w-24 rounded opacity-40" />
+              )}
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
